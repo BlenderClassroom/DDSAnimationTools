@@ -1,7 +1,7 @@
 bl_info = {
     "name": "DDS Annimation Tools",
     "author": "Dwayne Savage",
-    "version": (1, 4),
+    "version": (1, 5),
     "blender": (2, 83, 0),
     "location": "3D View->sidebar->Item tab.",
     "description": "General settings for animating.",
@@ -21,6 +21,93 @@ class MyPath(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = tab
+    bl_label = "Motion Paths"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(self, context):
+        try:
+            return (context.active_object.data)
+        except (AttributeError, KeyError, TypeError):
+            return False
+        
+    def draw(self, context):
+        mpath = context.object.motion_path
+        bs = context.active_pose_bone
+        if bs:
+            bones = context.active_pose_bone.motion_path
+            mps = context.object.pose.animation_visualization.motion_path
+        else:
+            bones=False
+            mps = context.object.animation_visualization.motion_path
+        col = self.layout.column(align=True)
+        col.prop(mps, "type", expand=True)
+        col.label(text="Display Range:")
+        sub = col.column(align=True)
+        if mps.type == 'CURRENT_FRAME':
+            sub.prop(mps, "frame_before", text="Before")
+            sub.prop(mps, "frame_after", text="After")
+        elif mps.type == 'RANGE':
+            sub.prop(mps, "frame_start", text="Start")
+            sub.prop(mps, "frame_end", text="End")
+        sub.prop(mps, "frame_step", text="Step")
+        if bs:
+            col.label(text="Cache for Bone:")
+        else:
+            col.label(text="Cache:")
+        if bones:
+            sub = col.column(align=True)
+            sub.enabled = False
+            sub.prop(bones, "frame_start", text="From")
+            sub.prop(bones, "frame_end", text="To")
+            sub = col.row(align=True)
+            sub.operator("pose.paths_update", text="Update Paths", icon='BONE_DATA')
+            sub.operator("pose.paths_clear", text="", icon='X')
+        elif mpath:
+            sub = col.column(align=True)
+            sub.enabled = False
+            sub.prop(mpath, "frame_start", text="From")
+            sub.prop(mpath, "frame_end", text="To")
+            sub = col.row(align=True)
+            sub.operator("object.paths_update", text="Update Paths", icon='OBJECT_DATA')
+            sub.operator("object.paths_clear", text="", icon='X')
+        else:
+            sub = col.column(align=True)
+            sub.label(text="Nothing to show yet...", icon='ERROR')
+            if bs:
+                sub.operator("pose.paths_calculate", text="Calculate...", icon='BONE_DATA')
+            else:
+                sub.operator("object.paths_calculate", text="Calculate...", icon='OBJECT_DATA')
+        col.label(text="Show:")
+        col.prop(mps, "show_frame_numbers", text="Frame Numbers")
+        col.prop(mps, "show_keyframe_highlight", text="Keyframes")
+        sub = col.column()
+        sub.enabled = mps.show_keyframe_highlight
+        if bs:
+            sub.prop(mps, "show_keyframe_action_all", text="+ Non-Grouped Keyframes")
+        sub.prop(mps, "show_keyframe_numbers", text="Keyframe Numbers")
+        if bones:
+            col.prop(bones, "lines", text="Lines")
+            col.prop(bones, "line_thickness", text="Thickness")
+            split = col.split(factor=0.6)
+            split.prop(bones, "use_custom_color", text="Color")
+            sub = split.column()
+            sub.enabled = bones.use_custom_color
+            sub.prop(bones, "color", text="")
+        elif mpath:
+            col.prop(mpath, "lines", text="Lines")
+            col.prop(mpath, "line_thickness", text="Thickness")
+            split = col.split(factor=0.6)
+            split.prop(mpath, "use_custom_color", text="Color")
+            sub = split.column()
+            sub.enabled = mpath.use_custom_color
+            sub.prop(mpath, "color", text="")
+            
+class MyPath2(bpy.types.Panel):
+    bl_idname = "DDS_PT_mypath2"
+    bl_space_type = "GRAPH_EDITOR"
+    bl_region_type = "UI"
+    bl_category = "DDS"
     bl_label = "Motion Paths"
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -161,7 +248,10 @@ class DDSTools(DDSAnime, Panel):
             col.prop(scene, "frame_start", text="Start")
             col.prop(scene, "frame_end", text="End")
         col = self.layout.column(align=True)
-        col.prop(context.preferences.edit, "use_mouse_depth_cursor", text="Cursor Surface Project")
+        col.prop(context.preferences.edit, "use_mouse_depth_cursor", toggle=True, text="Cursor Surface Project")
+        col.prop(context.preferences.edit, "use_visual_keying", toggle=True, text="Visual Keying")
+        col.prop(context.preferences.edit, "use_keyframe_insert_needed", toggle=True, text="Only insert needed")
+        col.prop(context.preferences.edit, "use_keyframe_insert_available", toggle=True, text="Only insert Available")
         col.prop(context.preferences.edit, "keyframe_new_interpolation_type", text="")
         col.prop(context.preferences.edit, "keyframe_new_handle_type", text="")
         col.prop(context.preferences.inputs.walk_navigation, "view_height")
@@ -244,6 +334,7 @@ classes = (
     DDSTools,
     DDSSimple,
     MyPath,
+    MyPath2,
 )
 
 def register():
